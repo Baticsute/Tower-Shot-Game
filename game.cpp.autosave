@@ -1,0 +1,177 @@
+#include <game.h>
+
+#include <level1tower.h>
+#include <level2tower.h>
+#include <level3tower.h>
+#include <bullet.h>
+#include <enemy.h>
+#include <score.h>
+#include <health.h>
+#include <buildlevel1towericon.h>
+#include <buildlevel2towericon.h>
+#include <buildlevel3towericon.h>
+#include <QGraphicsScene>
+#include <QTimer>
+#include <QGraphicsLineItem>
+#include <QPen>
+#include <QGraphicsLineItem>
+#include <QMessageBox>
+#include <Button.h>
+
+Game::Game(): QGraphicsView(){
+
+    scene = new QGraphicsScene(this);
+
+    scene->setSceneRect(0,0,800,600); //Vẽ tại điểm 0.0 , Vì Backround sắp đặt có kích thước 800x600
+
+    setBackgroundBrush(QBrush(QPixmap("E:/MediaQt/Tower/backround1.png"))); // Đặt Backround
+
+    setFixedSize(800,600); // Khung nhìn Fix lại kích thước 800x600
+
+    setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); // loại bỏ thanh cuộn
+
+    setScene(scene); // Khỏi Tạo Phối cảnh
+
+
+    cursor = nullptr; // con trỏ chuột giữ trỏ rỗng
+    building = nullptr; // trỏ bắt sự kiện click xây trụ rỗng
+    setMouseTracking(true); // lúc nào khởi tạo cũng là true để Widget nhận được các
+    // sự kiện di chuyển trỏ chuột ngay cả khi ko có nút nào được bấm .
+
+
+    score = new Score(); // khởi tạo score = 3
+    scene->addItem(score); // item được add vào cảnh
+    health = new Health(); // tượng tự cho thuộc tính Health
+    scene->addItem(health);
+
+    //Icon Trụ Lvl 1 Position ( 0 , 0 )
+    //Icon Trụ Lvl 2 Position ( 0 , 100 )
+    //Icon Trụ lvl 3 Position ( 0 , 200)
+    BuildLevel1TowerIcon * bt = new BuildLevel1TowerIcon();
+    BuildLevel2TowerIcon * gt = new BuildLevel2TowerIcon();
+    BuildLevel3TowerIcon * rt = new BuildLevel3TowerIcon();
+    gt->setPos(x(),y()+100);
+    rt->setPos(x(),y()+200);
+    scene->addItem(bt); // đưa Item vào trong Scene
+    scene->addItem(gt);
+    scene->addItem(rt);
+
+
+
+    spawnTimer = new QTimer(this); // Timer sinh ra Enemy
+    enemiesSpawned = 0; // Khởi tạo các giá trị
+    maxNumberOfEnemies = 0;
+
+    // điểm đi trên Backround của Enemy
+    pointsToFollow << QPointF(800,160) << QPointF(430,160) << QPointF(430,460) << QPointF(0,460);
+    createEnemies(100); // Tạo 100 Enemy
+
+
+
+
+
+}
+
+void Game::setCursor(QString filename){
+    if (cursor){
+        scene->removeItem(cursor);
+        delete cursor;
+    }
+
+    cursor = new QGraphicsPixmapItem();
+    cursor->setPixmap(QPixmap(filename));
+    scene->addItem(cursor);
+}
+
+void Game::mouseMoveEvent(QMouseEvent *event){
+    if (cursor){
+        cursor->setPos(event->pos());
+    }
+}
+void Game::mousePressEvent(QMouseEvent *event){
+    if (building && score->getScore() >= 0){
+
+        QList<QGraphicsItem *> items = cursor->collidingItems();
+        for (size_t i = 0, n = items.size(); i < n; i++){
+            if (dynamic_cast<Tower*>(items[i])){
+                return;
+            }
+        }
+
+        scene->addItem(building);
+        building->setPos(event->pos());
+        cursor = nullptr;
+        building = nullptr;
+    }
+    else {
+
+        QGraphicsView::mousePressEvent(event);
+
+    }
+
+}
+
+void Game::createEnemies(int numberOfEnemies){
+
+    enemiesSpawned = 0;
+    maxNumberOfEnemies = numberOfEnemies;
+    connect(spawnTimer,SIGNAL(timeout()),this,SLOT(spawnEnemy()));
+    spawnTimer->start(1000);
+
+}
+
+void Game::creatRoad(){
+
+    for (size_t i = 0, n = pointsToFollow.size()-1; i < n; i++){
+
+        QLineF line(pointsToFollow[i],pointsToFollow[i+1]);
+        QGraphicsLineItem * lineItem = new QGraphicsLineItem(line);
+
+        QPen pen;
+        pen.setWidth(15);
+        pen.setColor(Qt::darkGray);
+
+        lineItem->setPen(pen);
+        scene->addItem(lineItem);
+
+    }
+}
+void Game::spawnEnemy(){
+
+    Enemy * enemy = new Enemy(pointsToFollow);
+    enemy->setPos(pointsToFollow[0]);
+    scene->addItem(enemy);
+    enemiesSpawned += 1;
+
+    if(health->getHealth()==0){
+        for(int i=0;i<scene->items().size();i++){
+
+            scene->items()[i]->setEnabled(false);
+        }
+        spawnTimer->disconnect();
+
+        QString kq;
+        kq.append("Your score: ");
+        kq.append(QString::number(score->getScore()));
+        drawPanel(250,190,300,230,Qt::lightGray,0.75);
+
+        Button* close = new Button (QString(kq));
+        close->setPos(scene->width()/2-100,scene->height()/2-25);
+        scene->addItem(close);
+        connect(close,SIGNAL(clicked()),this,SLOT(close()));
+
+    }
+    if (enemiesSpawned >= maxNumberOfEnemies){
+        spawnTimer->disconnect();
+
+    }
+}
+void Game::drawPanel(int x,int y, int width,int height, QColor color,double opacity){
+    QGraphicsRectItem* panel= new QGraphicsRectItem(x,y,width,height);
+    QBrush brush;
+    brush.setStyle(Qt::SolidPattern);
+    brush.setColor(color);
+    panel->setBrush(brush);
+    panel->setOpacity(opacity);
+    scene->addItem(panel);
+}

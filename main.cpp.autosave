@@ -1,0 +1,20 @@
+
+#include <QApplication>
+#include <game.h>
+#include <QMessageBox>
+
+// Biến toàn cục
+Game * game;
+
+int main(int argc, char *argv[])
+{
+    QApplication a(argc, argv);
+    
+    //khởi tạo một đối tượng Game
+    game = new Game();
+    //Hiển thi ra màn hình
+    game->show();
+
+
+    return a.exec();
+}
